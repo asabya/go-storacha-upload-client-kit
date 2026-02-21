@@ -323,4 +323,3 @@ This library is built on top of:
 
 For issues and questions:
 - GitHub Issues: [Create an issue](https://github.com/asabya/go-storacha-upload-client-kit/issues)
-- Storacha Discord: [Join the community](https://discord.gg/storacha)
