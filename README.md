@@ -13,6 +13,12 @@ A Go library for uploading files and directories to [Storacha](https://storacha.
 - 💾 **JS-Compatible Store**: Reads/writes `storacha-cli.json` format compatible with JS CLI
 - 🚀 Built on top of go-ucanto and go-libstoracha
 
+## ⚠️ Disclaimer
+
+**This software is not tested and is provided "as is" without warranty of any kind.** 
+
+The authors and contributors are not responsible for any lost user data. Use this software at your own risk. Always do your own research (DYOR) and ensure you have proper backups before using this software with production data.
+
 ## Installation
 
 ```bash
