@@ -81,7 +81,7 @@ func TestReconstructDirectoryFromCAR(t *testing.T) {
 	// Reconstruct the directory from the CAR
 	outputDir := filepath.Join(tmpDir, "reconstructed")
 	err = ReconstructDirectoryFromCAR(carFile, rootCID, outputDir)
-	
+
 	// Note: Directory reconstruction via UnixFS reification is complex
 	// The current implementation may not fully support nested directories
 	// This is a known limitation for now

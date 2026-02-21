@@ -61,13 +61,6 @@ type Block struct {
 	Data []byte
 }
 
-// shardMetadata contains information about a stored shard
-type shardMetadata struct {
-	cid   cid.Cid
-	size  uint64
-	piece cid.Cid
-}
-
 // UploadFile uploads a single file to the service and returns the root data CID.
 // This mimics the JavaScript uploadFile function by directly calling client methods.
 //

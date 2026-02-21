@@ -25,10 +25,7 @@ import (
 // service for each block's exact shard location, then fetching each block via an
 // HTTP range request against the shard blob URL. This is more direct and reliable
 // than using an IPFS gateway.
-func DownloadFileViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputPath string, opts *DownloadOptions) error {
-	if opts == nil {
-		opts = &DownloadOptions{}
-	}
+func DownloadFileViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputPath string) error {
 	lsys := createIndexerLinkSystem(ctx, client, spaceDID)
 	return extractFileWithLinkSystem(lsys, rootCID, outputPath)
 }
@@ -36,10 +33,7 @@ func DownloadFileViaIndexer(ctx context.Context, client *StorachaClient, spaceDI
 // DownloadDirectoryViaIndexer downloads a UnixFS directory by querying the Storacha
 // indexing service for each block's exact shard location, then fetching blocks via
 // HTTP range requests. This is more direct and reliable than using an IPFS gateway.
-func DownloadDirectoryViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputDir string, opts *DownloadOptions) error {
-	if opts == nil {
-		opts = &DownloadOptions{}
-	}
+func DownloadDirectoryViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}

@@ -96,8 +96,8 @@ func TestUploadDirectory(t *testing.T) {
 
 	// Create test files
 	files := map[string]string{
-		"file1.txt":     "Content of file 1",
-		"file2.txt":     "Content of file 2",
+		"file1.txt":        "Content of file 1",
+		"file2.txt":        "Content of file 2",
 		"subdir/file3.txt": "Content of file 3 in subdirectory",
 	}
 

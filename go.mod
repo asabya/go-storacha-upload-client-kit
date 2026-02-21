@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/hsanjuan/ipfs-lite v1.8.6
+	github.com/ipfs/boxo v0.33.1
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-ipld-cbor v0.2.1
 	github.com/ipfs/go-unixfsnode v1.10.1
@@ -55,7 +56,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
-	github.com/ipfs/boxo v0.33.1 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-block-format v0.2.2 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect

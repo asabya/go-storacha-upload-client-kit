@@ -168,6 +168,21 @@ func MustGetProof(path string) delegation.Delegation {
 	return proof
 }
 
+// GenerateSigner creates a new Ed25519 signing key for use as the client principal.
+// The returned signer can be passed to client.SetPrincipal().
+//
+// Example:
+//
+//	signer, err := GenerateSigner()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Generated DID: %s\n", signer.DID())
+//	client.SetPrincipal(signer)
+func GenerateSigner() (principal.Signer, error) {
+	return signer.Generate()
+}
+
 // ParseSize parses a data size string with optional suffix (B, K, M, G).
 // Accepts formats like: "1024", "512B", "100K", "50M", "2G". Digits with no
 // suffix are interpreted as bytes. Returns the size in bytes.
@@ -229,8 +244,15 @@ func (e HandledCliError) Unwrap() error {
 	return e.error
 }
 
-// StorachaClient wraps the necessary functionality for uploading to Storacha
-// without depending on the full guppy Client struct.
+// StorachaClient provides the main interface for interacting with Storacha.
+// It handles authentication, uploads, and downloads using UCAN capabilities.
+//
+// Create a client using NewStorachaClientFromW3Access for JS CLI compatibility,
+// or NewStorachaClient for native guppy format.
+//
+// The client requires:
+//   - A principal (signing key) - set via SetPrincipal or loaded from store
+//   - Delegations granting capabilities - obtained via Login flow or loaded from store
 type StorachaClient struct {
 	connection       uclient.Connection
 	receiptsClient   *receiptclient.Client
@@ -248,8 +270,11 @@ type AddedBlob struct {
 	PDPAccept invocation.Invocation
 }
 
-// NewStorachaClient creates a new Storacha client for uploading.
+// NewStorachaClient creates a new Storacha client using the native guppy store format.
+// For JS CLI compatibility, use NewStorachaClientFromW3Access instead.
+//
 // The storePath should be a directory path where agent data will be stored.
+// If GUPPY_PRIVATE_KEY environment variable is set, it overrides the stored principal.
 func NewStorachaClient(storePath string) (*StorachaClient, error) {
 	store, err := agentstore.NewFs(storePath)
 	if err != nil {
@@ -274,7 +299,7 @@ func NewStorachaClient(storePath string) (*StorachaClient, error) {
 	}, nil
 }
 
-// DID returns the DID of the client.
+// DID returns the DID of the client's principal, or an empty DID if not configured.
 func (c *StorachaClient) DID() did.DID {
 	p, err := c.store.Principal()
 	if err != nil {
@@ -284,6 +309,19 @@ func (c *StorachaClient) DID() did.DID {
 		return did.DID{}
 	}
 	return p.DID()
+}
+
+// HasPrincipal returns true if the client has a principal (signing key) configured.
+// Use this to check if you need to generate and set a new principal.
+func (c *StorachaClient) HasPrincipal() (bool, error) {
+	return c.store.HasPrincipal()
+}
+
+// SetPrincipal sets the principal (signing key) for the client.
+// This is typically called with a newly generated signer or one loaded from elsewhere.
+// The principal is persisted to the store.
+func (c *StorachaClient) SetPrincipal(p principal.Signer) error {
+	return c.store.SetPrincipal(p)
 }
 
 // Issuer returns the issuing signer of the client.
@@ -442,8 +480,15 @@ func (c *StorachaClient) Retrieve(ctx context.Context, location locator.Location
 	return hres.Body(), nil
 }
 
-// SpaceBlobAdd adds a blob to the service. This is extracted from the guppy client
-// to avoid depending on the full Client struct.
+// SpaceBlobAdd uploads a blob to the Storacha service for a specific space.
+// This is a low-level method - most users should use UploadFile or UploadDirectory instead.
+//
+// The method handles:
+// 1. Allocating space for the blob
+// 2. Uploading to the provided URL
+// 3. Accepting the blob into storage
+//
+// Returns AddedBlob containing the location commitment for the uploaded content.
 func (c *StorachaClient) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, precomputedDigest multihash.Multihash, size uint64, opts *UploadOptions) (*AddedBlob, error) {
 	contentReader := content
 	contentHash := precomputedDigest
@@ -698,7 +743,9 @@ func (c *StorachaClient) SpaceBlobAdd(ctx context.Context, content io.Reader, sp
 	}, nil
 }
 
-// SpaceIndexAdd registers an index with the service.
+// SpaceIndexAdd registers an index (Sharded DAG index) with the service.
+// This enables efficient content discovery and retrieval.
+// Called internally during the upload process.
 func (c *StorachaClient) SpaceIndexAdd(ctx context.Context, indexCID cid.Cid, indexSize uint64, rootCID cid.Cid, space did.DID) error {
 	indexLink := cidlink.Link{Cid: indexCID}
 
@@ -733,7 +780,9 @@ func (c *StorachaClient) SpaceIndexAdd(ctx context.Context, indexCID cid.Cid, in
 	return nil
 }
 
-// UploadAdd registers an upload with the service.
+// UploadAdd registers an upload with the Storacha service.
+// This creates a mapping between the root CID and its shards.
+// Called internally after successful blob uploads.
 func (c *StorachaClient) UploadAdd(ctx context.Context, space did.DID, root ipld.Link, shards []ipld.Link) (uploadcap.AddOk, error) {
 	res, _, err := invokeAndExecute[uploadcap.AddCaveats, uploadcap.AddOk](
 		ctx,

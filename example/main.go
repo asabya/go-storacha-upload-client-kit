@@ -5,49 +5,56 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	kit "github.com/asabya/go-storacha-upload-client-kit"
 	"github.com/ipfs/go-cid"
 	"github.com/storacha/go-ucanto/did"
+	ed25519signer "github.com/storacha/go-ucanto/principal/ed25519/signer"
 )
 
-// newClient creates a StorachaClient from storePath.
-// If storePath ends in ".json" it is treated as a JS CLI storacha-cli.json file
-// (W3AccessStore). Otherwise it is treated as a guppy agent-store directory.
+// newClient creates a StorachaClient using the JS CLI format.
 func newClient(storePath string) (*kit.StorachaClient, error) {
-	if strings.HasSuffix(storePath, ".json") {
-		return kit.NewStorachaClientFromW3Access(storePath)
+	return kit.NewStorachaClientFromW3Access(storePath)
+}
+
+// newClientWithNewKey creates a client with a new key if one doesn't exist.
+func newClientWithNewKey(storePath string) (*kit.StorachaClient, error) {
+	client, err := kit.NewStorachaClientFromW3Access(storePath)
+	if err != nil {
+		return nil, err
 	}
-	return kit.NewStorachaClient(storePath)
+
+	// Check if principal exists
+	hasPrincipal, err := client.HasPrincipal()
+	if err != nil {
+		return nil, fmt.Errorf("checking principal: %w", err)
+	}
+
+	if !hasPrincipal {
+		// Generate new key
+		signer, err := ed25519signer.Generate()
+		if err != nil {
+			return nil, fmt.Errorf("generating key: %w", err)
+		}
+		if err := client.SetPrincipal(signer); err != nil {
+			return nil, fmt.Errorf("setting principal: %w", err)
+		}
+		fmt.Printf("Generated new agent key: %s\n", signer.DID().String())
+	}
+
+	return client, nil
 }
 
 func main() {
-	// Check for required arguments
-	if len(os.Args) < 3 {
-		fmt.Println("Usage:")
-		fmt.Println("  Upload:      example upload <agent-store-path> <space-did> <file-or-dir-path> [proof.car ...]")
-		fmt.Println("  Download:    example download <root-cid> <output-path> [store-path] [space-did]")
-		fmt.Println("  Reconstruct: example reconstruct <car-file> <root-cid> <output-path>")
-		fmt.Println()
-		fmt.Println("Store paths:")
-		fmt.Println("  ~/Library/Preferences/w3access/storacha-cli.json   JS CLI store (macOS)")
-		fmt.Println("  ~/.config/w3access/storacha-cli.json                JS CLI store (Linux)")
-		fmt.Println("  ~/.storacha/guppy                                   guppy agent-store directory")
-		fmt.Println("  (paths ending in .json are loaded as JS CLI stores; directories as guppy stores)")
-		fmt.Println()
-		fmt.Println("Examples:")
-		fmt.Println("  example upload ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk... ./myfile.txt")
-		fmt.Println("  example upload ~/.storacha/guppy did:key:z6Mkk... ./myfile.txt")
-		fmt.Println("  example download bafybeib... ./downloaded.txt")
-		fmt.Println("  example download bafybeib... ./downloaded.txt ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
-		fmt.Println("  example reconstruct ./data.car bafybeib... ./reconstructed.txt")
-		os.Exit(1)
+	if len(os.Args) < 2 {
+		printUsage()
 	}
 
 	command := os.Args[1]
 
 	switch command {
+	case "login":
+		handleLogin()
 	case "upload":
 		handleUpload()
 	case "download":
@@ -57,6 +64,60 @@ func main() {
 	default:
 		log.Fatalf("Unknown command: %s", command)
 	}
+}
+
+func printUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  Login:       example login <agent-store-path> <email>")
+	fmt.Println("  Upload:      example upload <agent-store-path> <space-did> <file-or-dir-path> [proof.car ...]")
+	fmt.Println("  Download:    example download <root-cid> <output-path> [store-path] [space-did]")
+	fmt.Println("  Reconstruct: example reconstruct <car-file> <root-cid> <output-path>")
+	fmt.Println()
+	fmt.Println("Store paths:")
+	fmt.Println("  ~/Library/Preferences/w3access/storacha-cli.json   JS CLI store (macOS)")
+	fmt.Println("  ~/.config/w3access/storacha-cli.json                JS CLI store (Linux)")
+	fmt.Println("  ~/.storacha/guppy                                   guppy agent-store directory")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  example login ~/Library/Preferences/w3access/storacha-cli.json user@example.com")
+	fmt.Println("  example upload ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk... ./myfile.txt")
+	fmt.Println("  example download bafybeib... ./downloaded.txt")
+	fmt.Println("  example download bafybeib... ./downloaded.txt ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
+	fmt.Println("  example reconstruct ./data.car bafybeib... ./reconstructed.txt")
+	os.Exit(1)
+}
+
+func handleLogin() {
+	if len(os.Args) < 4 {
+		log.Fatal("Usage: example login <agent-store-path> <email>")
+	}
+
+	storePath := os.Args[2]
+	email := os.Args[3]
+
+	fmt.Println("Creating Storacha client...")
+	client, err := newClientWithNewKey(storePath)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	clientDID := client.DID()
+	fmt.Printf("Client DID: %s\n", clientDID.String())
+
+	fmt.Printf("Logging in as: %s\n", email)
+	fmt.Println("Check your email for a verification link...")
+
+	ctx := context.Background()
+	result, err := kit.LoginAndSave(ctx, client, email, nil)
+	if err != nil {
+		log.Fatalf("Login failed: %v", err)
+	}
+
+	fmt.Println()
+	fmt.Println("✅ Login successful!")
+	fmt.Printf("Account DID: %s\n", result.AccountDID.String())
+	fmt.Printf("Received %d delegation(s)\n", len(result.Delegations))
+	fmt.Printf("Delegations saved to: %s\n", storePath)
 }
 
 func handleUpload() {
@@ -164,11 +225,11 @@ func handleDownload() {
 		}
 
 		fmt.Printf("Downloading CID via indexer: %s\n", rootCID.String())
-		err = kit.DownloadFileViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath, nil)
+		err = kit.DownloadFileViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath)
 		if err != nil {
 			log.Println("Error downloading file via indexer:", err)
 			fmt.Println("Trying as directory via indexer...")
-			err = kit.DownloadDirectoryViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath, nil)
+			err = kit.DownloadDirectoryViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath)
 			if err != nil {
 				log.Fatalf("Download via indexer failed: %v", err)
 			}
