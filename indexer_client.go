@@ -128,7 +128,7 @@ func MustGetHTTPIndexClient() (*HTTPIndexerClient, ucan.Principal) {
 		panic(fmt.Sprintf("parsing indexer URL: %v", err))
 	}
 
-	indexerDIDStr := GetEnv("STORACHA_INDEXING_SERVICE_DID", fmt.Sprintf("did:web:%s", defaultIndexerHost))
+	indexerDIDStr := GetEnv("STORACHA_INDEXING_SERVICE_DID", defaultIndexerDID)
 
 	indexerPrincipal, err := did.Parse(indexerDIDStr)
 	if err != nil {

@@ -54,8 +54,9 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-const defaultServiceName = "up.forge.storacha.network"
-const defaultIndexerName = "indexer.forge.storacha.network"
+const defaultServiceName = "up.storacha.network"
+const defaultIndexerName = "indexer.storacha.network"
+const defaultIndexerDID = "did:key:z6MkqMSJxrjzvpqmP3kZhk7eCasBK6DX1jaVaG7wD72LYRm7"
 
 // envSigner returns a principal.Signer from the environment variable
 // GUPPY_PRIVATE_KEY, if any.
@@ -139,7 +140,7 @@ func MustGetIndexClient() (*indexclient.Client, ucan.Principal) {
 
 	indexerDIDStr := os.Getenv("STORACHA_INDEXING_SERVICE_DID")
 	if indexerDIDStr == "" {
-		indexerDIDStr = fmt.Sprintf("did:web:%s", defaultIndexerName)
+		indexerDIDStr = defaultIndexerDID
 	}
 
 	indexerPrincipal, err := did.Parse(indexerDIDStr)
