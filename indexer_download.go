@@ -25,19 +25,19 @@ import (
 // service for each block's exact shard location, then fetching each block via an
 // HTTP range request against the shard blob URL. This is more direct and reliable
 // than using an IPFS gateway.
-func DownloadFileViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputPath string) error {
-	lsys := createIndexerLinkSystem(ctx, client, spaceDID)
+func (c *StorachaClient) DownloadFileViaIndexer(ctx context.Context, spaceDID did.DID, rootCID cid.Cid, outputPath string) error {
+	lsys := c.createIndexerLinkSystem(ctx, spaceDID)
 	return extractFileWithLinkSystem(lsys, rootCID, outputPath)
 }
 
 // DownloadDirectoryViaIndexer downloads a UnixFS directory by querying the Storacha
 // indexing service for each block's exact shard location, then fetching blocks via
 // HTTP range requests. This is more direct and reliable than using an IPFS gateway.
-func DownloadDirectoryViaIndexer(ctx context.Context, client *StorachaClient, spaceDID did.DID, rootCID cid.Cid, outputDir string) error {
+func (c *StorachaClient) DownloadDirectoryViaIndexer(ctx context.Context, spaceDID did.DID, rootCID cid.Cid, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
-	lsys := createIndexerLinkSystem(ctx, client, spaceDID)
+	lsys := c.createIndexerLinkSystem(ctx, spaceDID)
 	return extractDirectoryWithLinkSystem(ctx, lsys, rootCID, outputDir)
 }
 
@@ -48,9 +48,9 @@ func DownloadDirectoryViaIndexer(ctx context.Context, client *StorachaClient, sp
 //     against the shard blob URL.
 //  3. Returns the raw block bytes directly (the index stores data-level offsets,
 //     so the range response contains raw block data with no CARv1 frame wrapper).
-func createIndexerLinkSystem(ctx context.Context, client *StorachaClient, spaceDID did.DID) *ipld.LinkSystem {
+func (c *StorachaClient) createIndexerLinkSystem(ctx context.Context, spaceDID did.DID) *ipld.LinkSystem {
 	indexer, indexerPrincipal := MustGetIndexClient()
-	loc := locator.NewIndexLocator(indexer, makeAuthFunc(client, indexerPrincipal))
+	loc := locator.NewIndexLocator(indexer, c.makeAuthFunc(indexerPrincipal))
 
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.TrustedStorage = true
@@ -130,7 +130,7 @@ func createIndexerLinkSystem(ctx context.Context, client *StorachaClient, spaceD
 
 // makeAuthFunc returns a locator.AuthorizeRetrievalFunc that creates a short-lived
 // delegation allowing the indexing service to retrieve indexes from the given spaces.
-func makeAuthFunc(client *StorachaClient, indexerPrincipal ucan.Principal) locator.AuthorizeRetrievalFunc {
+func (c *StorachaClient) makeAuthFunc(indexerPrincipal ucan.Principal) locator.AuthorizeRetrievalFunc {
 	return func(spaces []did.DID) (delegation.Delegation, error) {
 		queries := make([]agentstore.CapabilityQuery, 0, len(spaces))
 		for _, space := range spaces {
@@ -141,7 +141,7 @@ func makeAuthFunc(client *StorachaClient, indexerPrincipal ucan.Principal) locat
 		}
 
 		var pfs []delegation.Proof
-		res, err := client.Proofs(queries...)
+		res, err := c.Proofs(queries...)
 		if err != nil {
 			return nil, fmt.Errorf("getting proofs: %w", err)
 		}
@@ -159,7 +159,7 @@ func makeAuthFunc(client *StorachaClient, indexerPrincipal ucan.Principal) locat
 		}
 
 		return delegation.Delegate(
-			client.Issuer(),
+			c.Issuer(),
 			indexerPrincipal,
 			caps,
 			delegation.WithProof(pfs...),

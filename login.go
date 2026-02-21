@@ -75,26 +75,22 @@ func emailToDidMailto(email string) (did.DID, error) {
 //
 // Example:
 //
-//	result, err := Login(ctx, client, "user@example.com", nil)
+//	result, err := client.Login(ctx, "user@example.com", nil)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //	fmt.Printf("Logged in as: %s\n", result.AccountDID)
-func Login(ctx context.Context, client *StorachaClient, email string, opts *LoginOptions) (*LoginResult, error) {
+func (c *StorachaClient) Login(ctx context.Context, email string, opts *LoginOptions) (*LoginResult, error) {
 	accountDID, err := emailToDidMailto(email)
 	if err != nil {
 		return nil, fmt.Errorf("parsing email: %w", err)
 	}
 
-	principal, err := client.store.Principal()
-	if err != nil {
-		return nil, fmt.Errorf("getting principal: %w", err)
-	}
-	if principal == nil {
+	if c.Issuer() == nil {
 		return nil, fmt.Errorf("no principal configured - cannot login")
 	}
 
-	result, err := requestAccess(ctx, client, principal, accountDID, opts)
+	result, err := c.requestAccess(ctx, accountDID, opts)
 	if err != nil {
 		return nil, fmt.Errorf("requesting access: %w", err)
 	}
@@ -105,18 +101,18 @@ func Login(ctx context.Context, client *StorachaClient, email string, opts *Logi
 // requestAccess sends an access/authorize request to the Storacha service.
 // This triggers an email to be sent to the account for confirmation.
 // It then polls for the delegations to be claimed after confirmation.
-func requestAccess(ctx context.Context, client *StorachaClient, issuer principal.Signer, accountDID did.DID, opts *LoginOptions) (*LoginResult, error) {
-	audienceDID, err := did.Parse(client.Connection().ID().DID().String())
+func (c *StorachaClient) requestAccess(ctx context.Context, accountDID did.DID, opts *LoginOptions) (*LoginResult, error) {
+	audienceDID, err := did.Parse(c.Connection().ID().DID().String())
 	if err != nil {
 		return nil, fmt.Errorf("parsing audience DID: %w", err)
 	}
 
-	authorizeInv, err := createAuthorizeInvocation(issuer, audienceDID, accountDID, opts)
+	authorizeInv, err := createAuthorizeInvocation(c.Issuer(), audienceDID, accountDID, opts)
 	if err != nil {
 		return nil, fmt.Errorf("creating authorize invocation: %w", err)
 	}
 
-	resp, err := uclient.Execute(ctx, []invocation.Invocation{authorizeInv}, client.Connection())
+	resp, err := uclient.Execute(ctx, []invocation.Invocation{authorizeInv}, c.Connection())
 	if err != nil {
 		return nil, fmt.Errorf("executing access/authorize: %w", err)
 	}
@@ -145,7 +141,7 @@ func requestAccess(ctx context.Context, client *StorachaClient, issuer principal
 	requestLink := authorizeOk.Request
 	expiration := authorizeOk.Expiration
 
-	delegations, err := pollClaim(ctx, client, issuer.DID(), requestLink, expiration)
+	delegations, err := c.pollClaim(ctx, c.Issuer().DID(), requestLink, expiration)
 	if err != nil {
 		return nil, fmt.Errorf("polling for delegations: %w", err)
 	}
@@ -210,7 +206,7 @@ func createAuthorizeInvocation(issuer principal.Signer, audience did.DID, accoun
 // pollClaim repeatedly checks for delegations to be available after the user
 // confirms the login via email. It polls until the expiration time or until
 // context is cancelled.
-func pollClaim(ctx context.Context, client *StorachaClient, agentDID did.DID, requestLink ucan.Link, expiration ucan.UTCUnixTimestamp) ([]delegation.Delegation, error) {
+func (c *StorachaClient) pollClaim(ctx context.Context, agentDID did.DID, requestLink ucan.Link, expiration ucan.UTCUnixTimestamp) ([]delegation.Delegation, error) {
 	timeout := time.Unix(int64(expiration), 0)
 	ticker := time.NewTicker(loginPollInterval)
 	defer ticker.Stop()
@@ -226,7 +222,7 @@ func pollClaim(ctx context.Context, client *StorachaClient, agentDID did.DID, re
 				return nil, fmt.Errorf("login request expired at %s", timeout.Format(time.RFC3339))
 			}
 
-			delegations, err := claimDelegations(ctx, client, agentDID, requestLink)
+			delegations, err := c.claimDelegations(ctx, agentDID, requestLink)
 			if err != nil {
 				continue
 			}
@@ -240,19 +236,14 @@ func pollClaim(ctx context.Context, client *StorachaClient, agentDID did.DID, re
 
 // claimDelegations calls access/claim to retrieve delegations granted to the agent.
 // Returns an empty slice if no delegations are available yet.
-func claimDelegations(ctx context.Context, client *StorachaClient, agentDID did.DID, requestLink ucan.Link) ([]delegation.Delegation, error) {
-	issuer, err := client.store.Principal()
-	if err != nil {
-		return nil, fmt.Errorf("getting principal: %w", err)
-	}
-
-	audienceDID, err := did.Parse(client.Connection().ID().DID().String())
+func (c *StorachaClient) claimDelegations(ctx context.Context, agentDID did.DID, requestLink ucan.Link) ([]delegation.Delegation, error) {
+	audienceDID, err := did.Parse(c.Connection().ID().DID().String())
 	if err != nil {
 		return nil, fmt.Errorf("parsing audience DID: %w", err)
 	}
 
 	claimInv, err := accesscap.Claim.Invoke(
-		issuer,
+		c.Issuer(),
 		audienceDID,
 		agentDID.String(),
 		accesscap.ClaimCaveats{},
@@ -261,7 +252,7 @@ func claimDelegations(ctx context.Context, client *StorachaClient, agentDID did.
 		return nil, fmt.Errorf("creating claim invocation: %w", err)
 	}
 
-	resp, err := uclient.Execute(ctx, []invocation.Invocation{claimInv}, client.Connection())
+	resp, err := uclient.Execute(ctx, []invocation.Invocation{claimInv}, c.Connection())
 	if err != nil {
 		return nil, fmt.Errorf("executing access/claim: %w", err)
 	}
@@ -393,8 +384,8 @@ func isRequestedAccess(del delegation.Delegation, requestLink ucan.Link) bool {
 
 // SaveDelegations stores delegations in the client's store.
 // This persists the granted capabilities for future use.
-func SaveDelegations(client *StorachaClient, delegations ...delegation.Delegation) error {
-	if err := client.store.AddDelegations(delegations...); err != nil {
+func (c *StorachaClient) SaveDelegations(delegations ...delegation.Delegation) error {
+	if err := c.store.AddDelegations(delegations...); err != nil {
 		return fmt.Errorf("adding delegations to store: %w", err)
 	}
 	return nil
@@ -405,18 +396,18 @@ func SaveDelegations(client *StorachaClient, delegations ...delegation.Delegatio
 //
 // Example:
 //
-//	result, err := LoginAndSave(ctx, client, "user@example.com", nil)
+//	result, err := client.LoginAndSave(ctx, "user@example.com", nil)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //	fmt.Printf("Logged in as: %s\n", result.AccountDID)
-func LoginAndSave(ctx context.Context, client *StorachaClient, email string, opts *LoginOptions) (*LoginResult, error) {
-	result, err := Login(ctx, client, email, opts)
+func (c *StorachaClient) LoginAndSave(ctx context.Context, email string, opts *LoginOptions) (*LoginResult, error) {
+	result, err := c.Login(ctx, email, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := SaveDelegations(client, result.Delegations...); err != nil {
+	if err := c.SaveDelegations(result.Delegations...); err != nil {
 		return nil, fmt.Errorf("saving delegations: %w", err)
 	}
 

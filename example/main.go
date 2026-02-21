@@ -108,7 +108,7 @@ func handleLogin() {
 	fmt.Println("Check your email for a verification link...")
 
 	ctx := context.Background()
-	result, err := kit.LoginAndSave(ctx, client, email, nil)
+	result, err := client.LoginAndSave(ctx, email, nil)
 	if err != nil {
 		log.Fatalf("Login failed: %v", err)
 	}
@@ -180,10 +180,10 @@ func handleUpload() {
 
 	if info.IsDir() {
 		fmt.Printf("Uploading directory: %s\n", uploadPath)
-		result, err = kit.UploadDirectory(ctx, client, spaceDID, uploadPath, opts)
+		result, err = client.UploadDirectory(ctx, spaceDID, uploadPath, opts)
 	} else {
 		fmt.Printf("Uploading file: %s\n", uploadPath)
-		result, err = kit.UploadFile(ctx, client, spaceDID, uploadPath, opts)
+		result, err = client.UploadFile(ctx, spaceDID, uploadPath, opts)
 	}
 
 	if err != nil {
@@ -225,11 +225,11 @@ func handleDownload() {
 		}
 
 		fmt.Printf("Downloading CID via indexer: %s\n", rootCID.String())
-		err = kit.DownloadFileViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath)
+		err = client.DownloadFileViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
 		if err != nil {
 			log.Println("Error downloading file via indexer:", err)
 			fmt.Println("Trying as directory via indexer...")
-			err = kit.DownloadDirectoryViaIndexer(context.Background(), client, spaceDID, rootCID, outputPath)
+			err = client.DownloadDirectoryViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
 			if err != nil {
 				log.Fatalf("Download via indexer failed: %v", err)
 			}

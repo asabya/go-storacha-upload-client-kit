@@ -4,18 +4,18 @@ A Go library for uploading files and directories to [Storacha](https://storacha.
 
 ## Features
 
-- 🔐 **Login Flow**: Complete email-based authentication compatible with JS storacha-cli
-- 📁 Upload single files or entire directories
-- 🔄 Progress tracking for uploads
-- 🎯 Direct upload to Storacha spaces
-- 📦 Automatic UnixFS encoding
-- 🔗 Returns IPFS CIDs and gateway URLs
-- 💾 **JS-Compatible Store**: Reads/writes `storacha-cli.json` format compatible with JS CLI
-- 🚀 Built on top of go-ucanto and go-libstoracha
+- **Login Flow**: Complete email-based authentication compatible with JS storacha-cli
+- Upload single files or entire directories
+- Progress tracking for uploads
+- Direct upload to Storacha spaces
+- Automatic UnixFS encoding
+- Returns IPFS CIDs and gateway URLs
+- **JS-Compatible Store**: Reads/writes `storacha-cli.json` format compatible with JS CLI
+- Built on top of go-ucanto and go-libstoracha
 
 ## ⚠️ Disclaimer
 
-**This software is not tested and is provided "as is" without warranty of any kind.** 
+**This software is not tested and is provided "as is" without warranty of any kind.**
 
 The authors and contributors are not responsible for any lost user data. Use this software at your own risk. Always do your own research (DYOR) and ensure you have proper backups before using this software with production data.
 
@@ -62,7 +62,7 @@ func main() {
     }
 
     // Login with email - this will wait for email confirmation
-    result, err := kit.LoginAndSave(ctx, client, "user@example.com", nil)
+    result, err := client.LoginAndSave(ctx, "user@example.com", nil)
     if err != nil {
         log.Fatal(err)
     }
@@ -82,7 +82,7 @@ func main() {
         },
     }
 
-    uploadResult, err := kit.UploadFile(ctx, client, spaceDID, "/path/to/file.txt", opts)
+    uploadResult, err := client.UploadFile(ctx, spaceDID, "/path/to/file.txt", opts)
     if err != nil {
         log.Fatal(err)
     }
@@ -108,7 +108,7 @@ client, err := kit.NewStorachaClientFromW3Access(storePath)
 ### Upload a Directory
 
 ```go
-result, err := kit.UploadDirectory(ctx, client, spaceDID, "/path/to/directory", &kit.UploadOptions{
+result, err := client.UploadDirectory(ctx, spaceDID, "/path/to/directory", &kit.UploadOptions{
     Wrap: true,
 })
 if err != nil {
@@ -124,13 +124,13 @@ fmt.Printf("CID: %s\n", result.RootCID.String())
 The library implements the same login flow as the JavaScript storacha-cli:
 
 1. **Generate or load a principal (signing key)**
-2. **Request authorization** - sends an email with a confirmation link
-3. **Poll for delegations** - waits for the user to click the link
-4. **Save delegations** - stores the granted capabilities
+2. **Request authorization** — sends an email with a confirmation link
+3. **Poll for delegations** — waits for the user to click the link
+4. **Save delegations** — stores the granted capabilities
 
 ```go
 // LoginAndSave handles the complete flow
-result, err := kit.LoginAndSave(ctx, client, "user@example.com", &kit.LoginOptions{
+result, err := client.LoginAndSave(ctx, "user@example.com", &kit.LoginOptions{
     AppName: "my-app", // Optional: identifies your app in the email
 })
 ```
@@ -145,8 +145,8 @@ The library reads and writes the same `storacha-cli.json` format as the JavaScri
 
 ### Client Types
 
-| Function | Store Format | Use Case |
-|----------|-------------|----------|
+| Constructor | Store Format | Use Case |
+|-------------|-------------|----------|
 | `NewStorachaClientFromW3Access(path)` | JS CLI compatible | Share with storacha-cli |
 | `NewStorachaClient(path)` | Guppy native | Guppy ecosystem only |
 
@@ -158,58 +158,97 @@ The library reads and writes the same `storacha-cli.json` format as the JavaScri
 
 Creates a client that uses the JS CLI-compatible store format.
 
-**Parameters:**
-- `path`: Directory path where `storacha-cli.json` will be stored
-
-**Returns:**
-- `*StorachaClient`: The client instance
-- `error`: Any error that occurred
+- `path`: Directory path where `storacha-cli.json` will be stored. Pass `""` to use the OS default location.
 
 #### `NewStorachaClient(storePath string) (*StorachaClient, error)`
 
 Creates a client using the native guppy store format.
 
-### Authentication Functions
+### Authentication Methods
 
-#### `Login(ctx context.Context, client *StorachaClient, email string, opts *LoginOptions) (*LoginResult, error)`
+#### `client.Login(ctx, email, opts) (*LoginResult, error)`
 
-Initiates the login flow. Returns after email confirmation.
+Initiates the login flow. Blocks until email confirmation.
 
-#### `LoginAndSave(ctx context.Context, client *StorachaClient, email string, opts *LoginOptions) (*LoginResult, error)`
+#### `client.LoginAndSave(ctx, email, opts) (*LoginResult, error)`
 
-Login and automatically save delegations to the store.
+Login and automatically save delegations to the store. Recommended for most use cases.
+
+#### `client.SaveDelegations(delegations...) error`
+
+Persists delegations to the store.
 
 #### `GenerateSigner() (principal.Signer, error)`
 
-Generates a new Ed25519 signing key for the client.
+Package-level helper that generates a new Ed25519 signing key.
 
 ### Client Methods
 
 #### `client.HasPrincipal() (bool, error)`
 
-Returns true if a principal (signing key) is configured.
+Returns true if a signing key is configured in the store.
 
 #### `client.SetPrincipal(p principal.Signer) error`
 
-Sets the principal for the client.
+Sets and persists the signing key for the client.
 
 #### `client.DID() did.DID`
 
-Returns the DID of the client.
+Returns the DID of the client's principal.
 
 #### `client.Spaces() ([]did.DID, error)`
 
-Returns the list of spaces the client has access to.
+Returns all space DIDs the client has delegations for.
 
-### Upload Functions
+#### `client.AddProof(d delegation.Delegation)`
 
-#### `UploadFile(ctx context.Context, client *StorachaClient, spaceDID did.DID, filePath string, opts *UploadOptions) (UploadResult, error)`
+Adds an explicit delegation proof without persisting it to the store.
 
-Uploads a single file to Storacha.
+#### `client.AddProofFromFile(path string) error`
 
-#### `UploadDirectory(ctx context.Context, client *StorachaClient, spaceDID did.DID, dirPath string, opts *UploadOptions) (UploadResult, error)`
+Loads a delegation proof from a CAR file.
 
-Uploads a directory of files to Storacha.
+### Upload Methods
+
+#### `client.UploadFile(ctx, spaceDID, filePath, opts) (UploadResult, error)`
+
+Uploads a single file to Storacha. When `opts.Wrap` is true (the default), the file is placed inside a directory node named after the original filename, matching the JS CLI behaviour.
+
+**Required delegations:** `space/blob/add`, `space/index/add`, `upload/add`, `filecoin/offer`
+
+#### `client.UploadDirectory(ctx, spaceDID, dirPath, opts) (UploadResult, error)`
+
+Uploads a directory recursively, preserving the directory structure.
+
+**Required delegations:** `space/blob/add`, `space/index/add`, `upload/add`, `filecoin/offer`
+
+### Download Functions
+
+These are package-level functions and do not require a client.
+
+#### `DownloadFile(ctx, rootCID, outputPath, opts) error`
+
+Downloads a file via an IPFS HTTP gateway (default: `ipfs.w3s.link`).
+
+#### `DownloadDirectory(ctx, rootCID, outputDir, opts) error`
+
+Downloads a directory via an IPFS HTTP gateway using CAR export.
+
+#### `ReconstructFileFromCAR(carPath, rootCID, outputPath) error`
+
+Reconstructs a file from a local CAR file. No network required.
+
+#### `ReconstructDirectoryFromCAR(carPath, rootCID, outputDir) error`
+
+Reconstructs a directory from a local CAR file. No network required.
+
+### Indexer-Based Download Methods
+
+Higher-reliability downloads that bypass the gateway by fetching blocks directly from their shard locations via the Storacha indexing service.
+
+#### `client.DownloadFileViaIndexer(ctx, spaceDID, rootCID, outputPath) error`
+
+#### `client.DownloadDirectoryViaIndexer(ctx, spaceDID, rootCID, outputDir) error`
 
 ### Types
 
@@ -217,7 +256,7 @@ Uploads a directory of files to Storacha.
 
 ```go
 type LoginOptions struct {
-    AppName string  // Optional app name shown in confirmation email
+    AppName string // Optional app name shown in the confirmation email
 }
 ```
 
@@ -234,9 +273,9 @@ type LoginResult struct {
 
 ```go
 type UploadOptions struct {
-    Dedupe     bool              // Enable deduplication (not implemented)
-    Wrap       bool              // Wrap files in a directory (default: true)
-    OnProgress func(uploaded int64)  // Progress callback
+    Dedupe     bool             // Enable deduplication (not yet implemented)
+    Wrap       bool             // Wrap files in a directory (default: true)
+    OnProgress func(int64)     // Progress callback; argument is bytes uploaded so far
 }
 ```
 
@@ -244,8 +283,17 @@ type UploadOptions struct {
 
 ```go
 type UploadResult struct {
-    RootCID cid.Cid  // Content identifier for uploaded data
-    URL     string   // IPFS gateway URL
+    RootCID cid.Cid // Content identifier for the uploaded data
+    URL     string  // IPFS gateway URL
+}
+```
+
+#### `DownloadOptions`
+
+```go
+type DownloadOptions struct {
+    OnProgress func(int64) // Progress callback; argument is bytes downloaded so far
+    Gateway    string      // Override the default IPFS gateway (ipfs.w3s.link)
 }
 ```
 
@@ -255,11 +303,12 @@ type UploadResult struct {
 
 Parses a data size string with optional suffix (B, K, M, G).
 
-**Examples:**
-- `"1024"` → 1024 bytes
-- `"512B"` → 512 bytes
-- `"100K"` → 102400 bytes
-- `"50M"` → 52428800 bytes
+```
+"1024"  → 1024 bytes
+"512B"  → 512 bytes
+"100K"  → 102400 bytes
+"50M"   → 52428800 bytes
+```
 
 #### `DefaultW3AccessStorePath() string`
 
@@ -267,52 +316,41 @@ Returns the OS-appropriate default path for the JS CLI store.
 
 ## Environment Variables
 
-### `GUPPY_PRIVATE_KEY`
-
-Your Storacha agent private key. Overrides the stored principal.
-
-```bash
-export GUPPY_PRIVATE_KEY="MgCYKXoHVy7Vk4/QjcEGi..."
-```
-
-### `STORACHA_SERVICE_URL`
-
-The Storacha service URL (default: `https://up.forge.storacha.network`).
-
-### `STORACHA_SERVICE_DID`
-
-The Storacha service DID (default: `did:web:up.forge.storacha.network`).
-
-### `STORACHA_RECEIPTS_URL`
-
-The receipts service URL (default: `https://up.forge.storacha.network/receipt`).
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GUPPY_PRIVATE_KEY` | — | Agent private key; overrides the stored principal |
+| `STORACHA_SERVICE_URL` | `https://up.storacha.network` | Storacha service URL |
+| `STORACHA_SERVICE_DID` | `did:web:up.storacha.network` | Storacha service DID |
+| `STORACHA_RECEIPTS_URL` | `https://up.storacha.network/receipt` | Receipts service URL |
+| `STORACHA_INDEXING_SERVICE_URL` | `https://indexer.storacha.network` | Indexing service URL |
+| `STORACHA_INDEXING_SERVICE_DID` | `did:key:z6Mkq...` | Indexing service DID |
 
 ## Testing
 
 ```bash
-go test -v
+go test -v ./...
 ```
 
-Note: Some tests require valid Storacha credentials and will be skipped if `GUPPY_PRIVATE_KEY` is not set.
+Some tests require valid Storacha credentials and will be skipped if `GUPPY_PRIVATE_KEY` is not set.
 
 ## Architecture
 
 This library is built on top of several key components:
 
-1. **UnixFS Encoding**: Files and directories are encoded using the UnixFS format
-2. **CAR Files**: Content is packaged into CAR (Content Addressable aRchive) files
-3. **Blob Upload**: CAR files are uploaded as blobs to Storacha
-4. **Index Creation**: Sharded DAG indexes are created for efficient retrieval
-5. **Upload Registration**: Uploads are registered with the service
+1. **UnixFS Encoding** — files and directories are encoded using the UnixFS format
+2. **CAR Files** — content is packaged into CAR (Content Addressable aRchive) files
+3. **Blob Upload** — CAR files are uploaded as blobs to Storacha
+4. **Index Creation** — sharded DAG indexes are created for efficient retrieval
+5. **Upload Registration** — uploads are registered with the service
 
 ## Required Capabilities
 
-To use this library, your agent must have the following delegated capabilities:
+To upload, your agent must have the following delegated capabilities for the target space:
 
-- `space/blob/add`: Permission to add blobs to a space
-- `space/index/add`: Permission to add indexes to a space
-- `upload/add`: Permission to register uploads
-- `filecoin/offer`: Permission to offer content to Filecoin (optional)
+- `space/blob/add` — add blobs to a space
+- `space/index/add` — add indexes to a space
+- `upload/add` — register uploads
+- `filecoin/offer` — offer content to Filecoin (optional)
 
 ## License
 
@@ -320,12 +358,10 @@ MIT
 
 ## Acknowledgments
 
-This library is built on top of:
-- [go-ucanto](https://github.com/storacha/go-ucanto) - UCAN implementation in Go
-- [go-libstoracha](https://github.com/storacha/go-libstoracha) - Storacha capabilities
-- [guppy](https://github.com/storacha/guppy) - Storacha CLI (source of upload logic)
+- [go-ucanto](https://github.com/storacha/go-ucanto) — UCAN implementation in Go
+- [go-libstoracha](https://github.com/storacha/go-libstoracha) — Storacha capabilities
+- [guppy](https://github.com/storacha/guppy) — Storacha CLI (source of upload logic)
 
 ## Support
 
-For issues and questions:
-- GitHub Issues: [Create an issue](https://github.com/asabya/go-storacha-upload-client-kit/issues)
+For issues and questions, open a [GitHub issue](https://github.com/asabya/go-storacha-upload-client-kit/issues).

@@ -68,13 +68,12 @@ type Block struct {
 //
 // Parameters:
 //   - ctx: Context for cancellation and timeouts
-//   - client: Storacha client with necessary capabilities
 //   - spaceDID: The space DID to upload to
 //   - filePath: Path to the file to upload
 //   - opts: Optional upload options
 //
 // Returns the root CID of the uploaded file.
-func UploadFile(ctx context.Context, client *StorachaClient, spaceDID did.DID, filePath string, opts *UploadOptions) (UploadResult, error) {
+func (c *StorachaClient) UploadFile(ctx context.Context, spaceDID did.DID, filePath string, opts *UploadOptions) (UploadResult, error) {
 	if opts == nil {
 		opts = &UploadOptions{Wrap: true}
 	}
@@ -113,7 +112,7 @@ func UploadFile(ctx context.Context, client *StorachaClient, spaceDID did.DID, f
 	}
 
 	// Upload the blocks (creates CAR, uploads blob, registers index and upload)
-	if err := uploadBlocks(ctx, client, spaceDID, blocks, rootCID, opts); err != nil {
+	if err := c.uploadBlocks(ctx, spaceDID, blocks, rootCID, opts); err != nil {
 		return UploadResult{}, fmt.Errorf("uploading blocks: %w", err)
 	}
 
@@ -131,13 +130,12 @@ func UploadFile(ctx context.Context, client *StorachaClient, spaceDID did.DID, f
 //
 // Parameters:
 //   - ctx: Context for cancellation and timeouts
-//   - client: Storacha client with necessary capabilities
 //   - spaceDID: The space DID to upload to
 //   - dirPath: Path to the directory to upload
 //   - opts: Optional upload options
 //
 // Returns the root CID of the uploaded directory.
-func UploadDirectory(ctx context.Context, client *StorachaClient, spaceDID did.DID, dirPath string, opts *UploadOptions) (UploadResult, error) {
+func (c *StorachaClient) UploadDirectory(ctx context.Context, spaceDID did.DID, dirPath string, opts *UploadOptions) (UploadResult, error) {
 	if opts == nil {
 		opts = &UploadOptions{Wrap: true}
 	}
@@ -149,7 +147,7 @@ func UploadDirectory(ctx context.Context, client *StorachaClient, spaceDID did.D
 	}
 
 	// Upload the blocks (creates CAR, uploads blob, registers index and upload)
-	if err := uploadBlocks(ctx, client, spaceDID, blocks, rootCID, opts); err != nil {
+	if err := c.uploadBlocks(ctx, spaceDID, blocks, rootCID, opts); err != nil {
 		return UploadResult{}, fmt.Errorf("uploading blocks: %w", err)
 	}
 
@@ -167,7 +165,7 @@ func UploadDirectory(ctx context.Context, client *StorachaClient, spaceDID did.D
 // Required delegated capability proofs: `space/blob/add`, `space/index/add`, `upload/add`, `filecoin/offer`
 //
 // Note: This function is not yet fully implemented.
-func UploadCAR(ctx context.Context, client *StorachaClient, spaceDID did.DID, carPath string, opts *UploadOptions) (UploadResult, error) {
+func (c *StorachaClient) UploadCAR(ctx context.Context, spaceDID did.DID, carPath string, opts *UploadOptions) (UploadResult, error) {
 	// TODO: Implement CAR upload
 	// This would involve:
 	// 1. Reading the CAR file
@@ -326,7 +324,7 @@ func encodeDirectoryAsBlocks(ctx context.Context, dirPath string) ([]Block, cid.
 
 // uploadBlocks uploads a set of blocks to the service, mimicking the JS uploadBlocks function.
 // It creates a CAR file, uploads it as a blob, creates an index, and registers the upload.
-func uploadBlocks(ctx context.Context, client *StorachaClient, spaceDID did.DID, blocks []Block, rootCID cid.Cid, opts *UploadOptions) error {
+func (c *StorachaClient) uploadBlocks(ctx context.Context, spaceDID did.DID, blocks []Block, rootCID cid.Cid, opts *UploadOptions) error {
 	// Step 1: Create CAR file from blocks
 	carBytes, err := encodeBlocksAsCAR(blocks, rootCID)
 	if err != nil {
@@ -358,14 +356,14 @@ func uploadBlocks(ctx context.Context, client *StorachaClient, spaceDID did.DID,
 
 	// Step 3: Upload CAR as blob
 	carReader := bytes.NewReader(carBytes)
-	addedBlob, err := client.SpaceBlobAdd(ctx, carReader, spaceDID, carMultihash, carSize, opts)
+	addedBlob, err := c.SpaceBlobAdd(ctx, carReader, spaceDID, carMultihash, carSize, opts)
 	if err != nil {
 		return fmt.Errorf("uploading CAR blob: %w", err)
 	}
 
 	// Step 4: Offer to Filecoin (if piece CID was computed)
 	if pieceCID.Defined() && addedBlob.PDPAccept != nil {
-		_, err = client.FilecoinOffer(ctx, spaceDID, cidlink.Link{Cid: carCID}, cidlink.Link{Cid: pieceCID}, addedBlob.PDPAccept)
+		_, err = c.FilecoinOffer(ctx, spaceDID, cidlink.Link{Cid: carCID}, cidlink.Link{Cid: pieceCID}, addedBlob.PDPAccept)
 		if err != nil {
 			return fmt.Errorf("offering to Filecoin: %w", err)
 		}
@@ -386,20 +384,20 @@ func uploadBlocks(ctx context.Context, client *StorachaClient, spaceDID did.DID,
 	indexCID := cid.NewCidV1(uint64(0x0202), indexMultihash)
 
 	indexReader := bytes.NewReader(indexBytes)
-	_, err = client.SpaceBlobAdd(ctx, indexReader, spaceDID, indexMultihash, uint64(len(indexBytes)), nil)
+	_, err = c.SpaceBlobAdd(ctx, indexReader, spaceDID, indexMultihash, uint64(len(indexBytes)), nil)
 	if err != nil {
 		return fmt.Errorf("uploading index blob: %w", err)
 	}
 
 	// Step 7: Register index with the service
-	err = client.SpaceIndexAdd(ctx, indexCID, uint64(len(indexBytes)), rootCID, spaceDID)
+	err = c.SpaceIndexAdd(ctx, indexCID, uint64(len(indexBytes)), rootCID, spaceDID)
 	if err != nil {
 		return fmt.Errorf("registering index: %w", err)
 	}
 
 	// Step 8: Register upload with the service
 	shards := []ipld.Link{cidlink.Link{Cid: carCID}}
-	_, err = client.UploadAdd(ctx, spaceDID, cidlink.Link{Cid: rootCID}, shards)
+	_, err = c.UploadAdd(ctx, spaceDID, cidlink.Link{Cid: rootCID}, shards)
 	if err != nil {
 		return fmt.Errorf("registering upload: %w", err)
 	}

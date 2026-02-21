@@ -59,7 +59,7 @@ func TestUploadFile(t *testing.T) {
 		},
 	}
 
-	result, err := UploadFile(ctx, client, spaceDID, testFile, opts)
+	result, err := client.UploadFile(ctx, spaceDID, testFile, opts)
 	if err != nil {
 		t.Fatalf("Failed to upload file: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestUploadDirectory(t *testing.T) {
 		},
 	}
 
-	result, err := UploadDirectory(ctx, client, spaceDID, testDir, opts)
+	result, err := client.UploadDirectory(ctx, spaceDID, testDir, opts)
 	if err != nil {
 		t.Fatalf("Failed to upload directory: %v", err)
 	}
@@ -207,8 +207,8 @@ func TestParseSizeUtil(t *testing.T) {
 	}
 }
 
-// ExampleUploadFile demonstrates how to upload a single file
-func ExampleUploadFile() {
+// ExampleStorachaClient_UploadFile demonstrates how to upload a single file
+func ExampleStorachaClient_UploadFile() {
 	// Create a client with your agent store path
 	client, err := NewStorachaClient("/path/to/agent/store")
 	if err != nil {
@@ -230,7 +230,7 @@ func ExampleUploadFile() {
 		},
 	}
 
-	result, err := UploadFile(ctx, client, spaceDID, "/path/to/file.txt", opts)
+	result, err := client.UploadFile(ctx, spaceDID, "/path/to/file.txt", opts)
 	if err != nil {
 		panic(err)
 	}
@@ -239,8 +239,8 @@ func ExampleUploadFile() {
 	fmt.Printf("Access at: %s\n", result.URL)
 }
 
-// ExampleUploadDirectory demonstrates how to upload a directory
-func ExampleUploadDirectory() {
+// ExampleStorachaClient_UploadDirectory demonstrates how to upload a directory
+func ExampleStorachaClient_UploadDirectory() {
 	// Create a client with your agent store path
 	client, err := NewStorachaClient("/path/to/agent/store")
 	if err != nil {
@@ -259,7 +259,7 @@ func ExampleUploadDirectory() {
 		Wrap: true,
 	}
 
-	result, err := UploadDirectory(ctx, client, spaceDID, "/path/to/directory", opts)
+	result, err := client.UploadDirectory(ctx, spaceDID, "/path/to/directory", opts)
 	if err != nil {
 		panic(err)
 	}
