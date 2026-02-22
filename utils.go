@@ -21,7 +21,6 @@ import (
 	filecoincap "github.com/storacha/go-libstoracha/capabilities/filecoin"
 	httpcap "github.com/storacha/go-libstoracha/capabilities/http"
 	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	contentcap "github.com/storacha/go-libstoracha/capabilities/space/content"
 	spaceindexcap "github.com/storacha/go-libstoracha/capabilities/space/index"
 	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
@@ -29,7 +28,6 @@ import (
 	w3sblobcap "github.com/storacha/go-libstoracha/capabilities/web3.storage/blob"
 	"github.com/storacha/go-libstoracha/failure"
 	uclient "github.com/storacha/go-ucanto/client"
-	rclient "github.com/storacha/go-ucanto/client/retrieval"
 	"github.com/storacha/go-ucanto/core/dag/blockstore"
 	"github.com/storacha/go-ucanto/core/delegation"
 	"github.com/storacha/go-ucanto/core/invocation"
@@ -47,7 +45,6 @@ import (
 	"github.com/storacha/go-ucanto/ucan"
 	"github.com/storacha/go-ucanto/validator"
 	"github.com/storacha/guppy/pkg/agentstore"
-	"github.com/storacha/guppy/pkg/client/locator"
 	cdg "github.com/storacha/guppy/pkg/delegation"
 	receiptclient "github.com/storacha/guppy/pkg/receipt"
 	indexclient "github.com/storacha/indexing-service/pkg/client"
@@ -404,81 +401,6 @@ func (c *StorachaClient) Spaces() ([]did.DID, error) {
 	}
 
 	return spaces, nil
-}
-
-// Retrieve retrieves content from a given location.
-// This implements the dagservice.Retriever interface.
-func (c *StorachaClient) Retrieve(ctx context.Context, location locator.Location) (io.ReadCloser, error) {
-	locationCommitment := location.Commitment
-
-	space := locationCommitment.Nb().Space
-
-	nodeID, err := did.Parse(locationCommitment.With())
-	if err != nil {
-		return nil, fmt.Errorf("parsing DID of storage provider node `%s`: %w", locationCommitment.With(), err)
-	}
-
-	urls := locationCommitment.Nb().Location
-	if len(urls) == 0 {
-		return nil, fmt.Errorf("no URLs in location commitment")
-	}
-	url := urls[0] // Use first URL
-
-	storageProvider, err := did.Parse(locationCommitment.With())
-	if err != nil {
-		return nil, fmt.Errorf("parsing DID of storage provider `%s`: %w", locationCommitment.With(), err)
-	}
-
-	delegations, err := c.Proofs(agentstore.CapabilityQuery{
-		Can:  contentcap.Retrieve.Can(),
-		With: space.String(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	prfs := make([]delegation.Proof, 0, len(delegations))
-	// Only include the first proof to avoid exceeding header size limits
-	// The first proof should contain a valid proof chain
-	if len(delegations) > 0 {
-		prfs = append(prfs, delegation.FromDelegation(delegations[0]))
-	}
-
-	start := location.Position.Offset
-	end := start + location.Position.Length - 1
-
-	inv, err := contentcap.Retrieve.Invoke(
-		c.Issuer(),
-		storageProvider,
-		space.String(),
-		contentcap.RetrieveCaveats{
-			Blob: contentcap.BlobDigest{Digest: locationCommitment.Nb().Content.Hash()},
-			Range: contentcap.Range{
-				Start: start,
-				End:   end,
-			},
-		},
-		delegation.WithProof(prfs...),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("invoking `space/content/retrieve`: %w", err)
-	}
-
-	conn, err := rclient.NewConnection(nodeID, &url, rclient.WithClient(c.retrievalClient))
-	if err != nil {
-		return nil, fmt.Errorf("creating connection: %w", err)
-	}
-
-	_, hres, err := rclient.Execute(ctx, inv, conn, rclient.WithPublicRetrieval())
-	if err != nil {
-		return nil, fmt.Errorf("executing `space/content/retrieve` invocation: %w", err)
-	}
-
-	// xres will be nil for public retrieval, the actual data is in hres
-	if hres == nil {
-		return nil, fmt.Errorf("http response is nil")
-	}
-
-	return hres.Body(), nil
 }
 
 // SpaceBlobAdd uploads a blob to the Storacha service for a specific space.

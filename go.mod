@@ -15,7 +15,7 @@ require (
 	github.com/storacha/go-fil-commp-hashhash v0.0.0-20251204184521-dc48123eb846
 	github.com/storacha/go-libstoracha v0.6.7
 	github.com/storacha/go-ucanto v0.7.3-0.20251211154916-f8fccf577e64
-	github.com/storacha/guppy v0.0.0-20250101000000-000000000000
+	github.com/storacha/guppy v0.5.0
 	github.com/storacha/indexing-service v1.12.2
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
@@ -33,7 +33,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
-	github.com/ipfs/boxo v0.33.1 // indirect
+	github.com/ipfs/boxo v0.32.0 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-block-format v0.2.2 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.1 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.3 // indirect
 	github.com/ipfs/go-ipld-format v0.6.2 // indirect
-	github.com/ipfs/go-ipld-legacy v0.2.2 // indirect
+	github.com/ipfs/go-ipld-legacy v0.2.1 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.6.0 // indirect
 	github.com/ipfs/go-merkledag v0.11.0 // indirect
@@ -52,13 +52,13 @@ require (
 	github.com/ipni/go-libipni v0.6.18 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/libp2p/go-libp2p v0.42.1 // indirect
+	github.com/libp2p/go-libp2p v0.41.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
-	github.com/multiformats/go-multiaddr v0.16.1 // indirect
+	github.com/multiformats/go-multiaddr v0.16.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
 	github.com/multiformats/go-multicodec v0.9.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
@@ -78,7 +78,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
+	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
@@ -86,4 +86,4 @@ require (
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
 
-replace github.com/storacha/guppy => ../../storacha/guppy
+replace github.com/storacha/go-ucanto => github.com/asabya/go-ucanto v0.0.0-20260222065723-7af8003fee98
