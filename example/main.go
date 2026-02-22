@@ -8,6 +8,7 @@ import (
 
 	kit "github.com/asabya/go-storacha-upload-client-kit"
 	"github.com/ipfs/go-cid"
+	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
 	"github.com/storacha/go-ucanto/did"
 	ed25519signer "github.com/storacha/go-ucanto/principal/ed25519/signer"
 )
@@ -61,6 +62,8 @@ func main() {
 		handleDownload()
 	case "reconstruct":
 		handleReconstruct()
+	case "list":
+		handleList()
 	default:
 		log.Fatalf("Unknown command: %s", command)
 	}
@@ -72,6 +75,7 @@ func printUsage() {
 	fmt.Println("  Upload:      example upload <agent-store-path> <space-did> <file-or-dir-path> [proof.car ...]")
 	fmt.Println("  Download:    example download <root-cid> <output-path> [store-path] [space-did]")
 	fmt.Println("  Reconstruct: example reconstruct <car-file> <root-cid> <output-path>")
+	fmt.Println("  List:        example list <agent-store-path> <space-did>")
 	fmt.Println()
 	fmt.Println("Store paths:")
 	fmt.Println("  ~/Library/Preferences/w3access/storacha-cli.json   JS CLI store (macOS)")
@@ -84,6 +88,7 @@ func printUsage() {
 	fmt.Println("  example download bafybeib... ./downloaded.txt")
 	fmt.Println("  example download bafybeib... ./downloaded.txt ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
 	fmt.Println("  example reconstruct ./data.car bafybeib... ./reconstructed.txt")
+	fmt.Println("  example list ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
 	os.Exit(1)
 }
 
@@ -335,4 +340,45 @@ func handleReconstruct() {
 
 	fmt.Println("✅ Reconstruction successful!")
 	fmt.Printf("Saved to: %s\n", outputPath)
+}
+
+func handleList() {
+	if len(os.Args) < 4 {
+		log.Fatal("Usage: example list <agent-store-path> <space-did>")
+	}
+
+	storePath := os.Args[2]
+	spaceDIDStr := os.Args[3]
+
+	spaceDID, err := did.Parse(spaceDIDStr)
+	if err != nil {
+		log.Fatalf("Invalid space DID: %v", err)
+	}
+
+	client, err := newClient(storePath)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	var cursor *string
+	total := 0
+	for {
+		listOk, err := client.UploadList(ctx, spaceDID, uploadcap.ListCaveats{Cursor: cursor})
+		if err != nil {
+			log.Fatalf("UploadList failed: %v", err)
+		}
+
+		for _, r := range listOk.Results {
+			fmt.Println(r.Root)
+			total++
+		}
+
+		if listOk.Cursor == nil {
+			break
+		}
+		cursor = listOk.Cursor
+	}
+
+	fmt.Printf("\nTotal uploads: %d\n", total)
 }
