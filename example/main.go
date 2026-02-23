@@ -71,11 +71,11 @@ func main() {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  Login:       example login <agent-store-path> <email>")
-	fmt.Println("  Upload:      example upload <agent-store-path> <space-did> <file-or-dir-path> [proof.car ...]")
-	fmt.Println("  Download:    example download <root-cid> <output-path> [store-path] [space-did]")
+	fmt.Println("  Login:       example login <store-path> <email>")
+	fmt.Println("  Upload:      example upload <store-path> <space-did> <file-or-dir-path> [proof.car ...]")
+	fmt.Println("  Download:    example download <store-path> <space-did> <root-cid> <output-path>")
 	fmt.Println("  Reconstruct: example reconstruct <car-file> <root-cid> <output-path>")
-	fmt.Println("  List:        example list <agent-store-path> <space-did>")
+	fmt.Println("  List:        example list <store-path> <space-did>")
 	fmt.Println()
 	fmt.Println("Store paths:")
 	fmt.Println("  ~/Library/Preferences/w3access/storacha-cli.json   JS CLI store (macOS)")
@@ -85,8 +85,7 @@ func printUsage() {
 	fmt.Println("Examples:")
 	fmt.Println("  example login ~/Library/Preferences/w3access/storacha-cli.json user@example.com")
 	fmt.Println("  example upload ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk... ./myfile.txt")
-	fmt.Println("  example download bafybeib... ./downloaded.txt")
-	fmt.Println("  example download bafybeib... ./downloaded.txt ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
+	fmt.Println("  example download ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk... bafybeib... ./downloaded.txt")
 	fmt.Println("  example reconstruct ./data.car bafybeib... ./reconstructed.txt")
 	fmt.Println("  example list ~/Library/Preferences/w3access/storacha-cli.json did:key:z6Mkk...")
 	os.Exit(1)
@@ -202,72 +201,42 @@ func handleUpload() {
 }
 
 func handleDownload() {
-	if len(os.Args) < 4 {
-		log.Fatal("Usage: example download <root-cid> <output-path> [store-path] [space-did]")
+	if len(os.Args) < 6 {
+		log.Fatal("Usage: example download <store-path> <space-did> <root-cid> <output-path>")
 	}
 
-	rootCIDStr := os.Args[2]
-	outputPath := os.Args[3]
+	store := os.Args[2]
+	spaceDIDStr := os.Args[3]
+	rootCIDStr := os.Args[4]
+	outputPath := os.Args[5]
 
-	// Parse root CID
+	client, err := newClient(store)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
 	rootCID, err := cid.Decode(rootCIDStr)
 	if err != nil {
 		log.Fatalf("Invalid root CID: %v", err)
 	}
 
-	// If store path and space DID are provided, use indexer-based download
-	if len(os.Args) >= 6 {
-		store := os.Args[4]
-		spaceDIDStr := os.Args[5]
-
-		client, err := newClient(store)
-		if err != nil {
-			log.Fatalf("Failed to create client: %v", err)
-		}
-		spaceDID, err := did.Parse(spaceDIDStr)
-		if err != nil {
-			log.Fatalf("Failed to parse space DID: %v", err)
-		}
-
-		fmt.Printf("Downloading CID via indexer: %s\n", rootCID.String())
-		err = client.DownloadFileViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
-		if err != nil {
-			log.Println("Error downloading file via indexer:", err)
-			fmt.Println("Trying as directory via indexer...")
-			err = client.DownloadDirectoryViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
-			if err != nil {
-				log.Fatalf("Download via indexer failed: %v", err)
-			}
-		}
-
-		fmt.Println()
-		fmt.Println("✅ Download successful!")
-		fmt.Printf("Saved to: %s\n", outputPath)
-		return
-	}
-
-	ctx := context.Background()
-	opts := &kit.DownloadOptions{
-		OnProgress: func(downloaded int64) {
-			fmt.Printf("\rDownloaded: %d bytes", downloaded)
-		},
-	}
-
-	fmt.Printf("Downloading CID: %s\n", rootCID.String())
-
-	// Try to download as file first
-	err = kit.DownloadFile(ctx, rootCID, outputPath, opts)
+	spaceDID, err := did.Parse(spaceDIDStr)
 	if err != nil {
-		log.Println("Error downloading file:", err)
-		// If file download fails, try as directory
-		fmt.Printf("\nTrying to download as directory...\n")
-		err = kit.DownloadDirectory(ctx, rootCID, outputPath, opts)
+		log.Fatalf("Failed to parse space DID: %v", err)
+	}
+
+	fmt.Printf("Downloading CID via indexer: %s\n", rootCID.String())
+	err = client.DownloadFileViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
+	if err != nil {
+		log.Println("Error downloading file via indexer:", err)
+		fmt.Println("Trying as directory via indexer...")
+		err = client.DownloadDirectoryViaIndexer(context.Background(), spaceDID, rootCID, outputPath)
 		if err != nil {
-			log.Fatalf("Download failed: %v", err)
+			log.Fatalf("Download via indexer failed: %v", err)
 		}
 	}
 
-	fmt.Println() // New line after progress
+	fmt.Println()
 	fmt.Println("✅ Download successful!")
 	fmt.Printf("Saved to: %s\n", outputPath)
 }
