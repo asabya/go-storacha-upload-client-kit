@@ -17,6 +17,7 @@ require (
 	github.com/storacha/go-ucanto v0.7.3-0.20251211154916-f8fccf577e64
 	github.com/storacha/guppy v0.5.0
 	github.com/storacha/indexing-service v1.12.2
+	github.com/storacha/smelt v0.0.2-0.20260313203414-eef9fd6c8416
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
 )
@@ -193,7 +194,6 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/storacha/smelt v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/testcontainers/testcontainers-go v0.40.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/compose v0.40.0 // indirect
